@@ -1,39 +1,30 @@
 ---
-title: "Installing"
+title: "安装"
 weight: 2
 ---
 
-## Installing
+## 安装
 
-### Why aren't there native packages of Helm for Fedora and other Linux distros?
+### 为什么没有针对Fedora和其他Linux发行版的Helm原生包?
 
-The Helm project does not maintain packages for operating systems and
-environments. The Helm community may provide native packages and if the Helm
-project is made aware of them they will be listed. This is how the Homebrew
-formula was started and listed. If you're interested in maintaining a package,
-we'd love it.
+Helm 项目不维护针对操作系统和环境的包。Helm 社区如果觉得需要提供原生包时，可以提供原生包。
+这是Homebrew 开始列出的方案。如果您有兴趣维护一个包，我们会很高兴的。
 
-### Why do you provide a `curl ...|bash` script?
+### 为什么会提供 `curl ...|bash` 脚本?
 
-There is a script in our repository (`scripts/get-helm-3`) that can be executed
-as a `curl ..|bash` script. The transfers are all protected by HTTPS, and the
-script does some auditing of the packages it fetches. However, the script has
-all the usual dangers of any shell script.
+我们的仓库(`scripts/get-helm-3`)中有个脚本可以作为 `curl ..|bash` 脚本执行。
+使用HTTPS传输，并且这个脚本对它获取到包做一些审核。
+然而这个脚本有任何shell脚本的所有常见危险。
 
-We provide it because it is useful, but we suggest that users carefully read the
-script first. What we'd really like, though, are better packaged releases of
-Helm.
+我们提供这个脚本因为它很好用，但是我们建议用户先仔细阅读这个脚本。不过我们真正想要的是更好的Helm打包版本。
 
-### How do I put the Helm client files somewhere other than their defaults?
+### 我如何将Helm客户端文件放置在其他位置而不是默认位置?
 
-Helm uses the XDG structure for storing files. There are environment variables
-you can use to override these locations:
+Helm 使用XDG结构存储文件。这些环境变量可以用来覆盖默认位置:
 
-- `$XDG_CACHE_HOME`: set an alternative location for storing cached files.
-- `$XDG_CONFIG_HOME`: set an alternative location for storing Helm
-  configuration.
-- `$XDG_DATA_HOME`: set an alternative location for storing Helm data.
+- `$XDG_CACHE_HOME`: 设置另一个存储缓存文件的位置。
+- `$XDG_CONFIG_HOME`: 设置另一个存储Helm配置的位置。
+- `$XDG_DATA_HOME`: 设置另一个存储Helm数据的位置。
 
-Note that if you have existing repositories, you will need to re-add them with
-`helm repo add...`.
+注意，如果有已经存在的仓库，您需要使用 `helm repo add...` 重新添加。
 

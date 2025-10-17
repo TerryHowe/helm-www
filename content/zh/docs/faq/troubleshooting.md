@@ -1,139 +1,123 @@
 ---
-title: "Troubleshooting"
+title: "故障排除"
 weight: 4
 ---
 
-## Troubleshooting
+## 故障排除
 
-### I am getting a warning about "Unable to get an update from the "stable" chart repository"
+### 我收到了关于 "Unable to get an update from the "stable" chart repository" 的警告
 
-Run `helm repo list`. If it shows your `stable` repository pointing to a `storage.googleapis.com` URL, you
-will need to update that repository. On November 13, 2020, the Helm Charts repo [became unsupported](https://github.com/helm/charts#deprecation-timeline) after a year-long deprecation. An archive has been made available at
-`https://charts.helm.sh/stable` but will no longer receive updates. 
+运行 `helm repo list`。如果显示你的 `stable` 仓库指向 `storage.googleapis.com` URL，你需要更新该仓库。
+2020年11月13日，Helm Charts 仓库在经过一年的弃用期后[停止支持](https://github.com/helm/charts#deprecation-timeline)。
+归档文件可在 `https://charts.helm.sh/stable` 获取，但不再接收更新。
 
-You can run the following command to fix your repository:
-
-```console
-$ helm repo add stable https://charts.helm.sh/stable --force-update  
-```
-
-The same goes for the `incubator` repository, which has an archive available at https://charts.helm.sh/incubator.
-You can run the following command to repair it:
-
-```console
-$ helm repo add incubator https://charts.helm.sh/incubator --force-update  
-```
-
-### I am getting the warning 'WARNING: "kubernetes-charts.storage.googleapis.com" is deprecated for "stable" and will be deleted Nov. 13, 2020.'
-
-The old Google helm chart repository has been replaced by a new Helm chart repository.
-
-Run the following command to permanently fix this:
+您可以运行以下命令来修复您的仓库：
 
 ```console
 $ helm repo add stable https://charts.helm.sh/stable --force-update  
 ```
 
-If you get a similar error for `incubator`, run this command:
+`incubator` 仓库同样如此，归档文件可在 https://charts.helm.sh/incubator 获取。
+您可以运行以下命令来修复它：
 
 ```console
 $ helm repo add incubator https://charts.helm.sh/incubator --force-update  
 ```
 
-### When I add a Helm repo, I get the error 'Error: Repo "https://kubernetes-charts.storage.googleapis.com" is no longer available'
+### 我收到了警告 'WARNING: "kubernetes-charts.storage.googleapis.com" is deprecated for "stable" and will be deleted Nov. 13, 2020.'
 
-The Helm Chart repositories are no longer supported after [a year-long deprecation period](https://github.com/helm/charts#deprecation-timeline). 
-Archives for these repositories are available at `https://charts.helm.sh/stable` and `https://charts.helm.sh/incubator`, however they will no longer receive updates. The command
-`helm repo add` will not let you add the old URLs unless you specify `--use-deprecated-repos`.
+旧的Google helm chart 仓库已被新的 Helm chart 仓库替换。
 
-### On GKE (Google Container Engine) I get "No SSH tunnels currently open"
+运行以下命令来永久修复此问题：
+
+```console
+$ helm repo add stable https://charts.helm.sh/stable --force-update  
+```
+
+如果您对 `incubator` 遇到类似的错误，运行此命令：
+
+```console
+$ helm repo add incubator https://charts.helm.sh/incubator --force-update  
+```
+
+### 当我添加 Helm 仓库时，收到错误 'Error: Repo "https://kubernetes-charts.storage.googleapis.com" is no longer available'
+
+Helm Chart 仓库在[一年的弃用期](https://github.com/helm/charts#deprecation-timeline)后不再受支持。
+这些仓库的归档文件可在 `https://charts.helm.sh/stable` 和 `https://charts.helm.sh/incubator` 获取，
+但它们不再接收更新。除非您指定 `--use-deprecated-repos`，否则 `helm repo add` 命令不允许您添加旧的 URL。
+
+### 在 GKE (Google Container Engine) 我遇到了 "No SSH tunnels currently open"
 
 ```
 Error: Error forwarding ports: error upgrading connection: No SSH tunnels currently open. Were the targets able to accept an ssh-key for user "gke-[redacted]"?
 ```
 
-Another variation of the error message is:
-
+另一个错误消息的形式：
 
 ```
 Unable to connect to the server: x509: certificate signed by unknown authority
 ```
 
-The issue is that your local Kubernetes config file must have the correct
-credentials.
+这个问题是说您本地的Kubernetes 配置文件需要有正确的证书。
 
-When you create a cluster on GKE, it will give you credentials, including SSL
-certificates and certificate authorities. These need to be stored in a
-Kubernetes config file (Default: `~/.kube/config`) so that `kubectl` and `helm`
-can access them.
+当你在GKE上创建集群时，它会为您提供一个证书，包括SSL证书和证书颁发机构。
+这些需要放在Kubernetes配置文件中（默认位置: `~/.kube/config`），保证 `kubectl` 和 `helm` 可以访问他们。
 
-### After migration from Helm 2, `helm list` shows only some (or none) of my releases
+### 从Helm 2迁移后， `helm list` 仅显示部分（或者不显示）我的发布版本
 
-It is likely that you have missed the fact that Helm 3 now uses cluster
-namespaces throughout to scope releases. This means that for all commands
-referencing a release you must either:
+您很可能忽略了一个事实：Helm 3 现在使用集群的命名空间来确定版本范围。 这意味着所有涉及版本的命令您都必须：
 
-* rely on the current namespace in the active kubernetes context (as described
-  by the `kubectl config view --minify` command),
-* specify the correct namespace using the `--namespace`/`-n` flag, or
-* for the `helm list` command, specify the `--all-namespaces`/`-A` flag
+* 在活动的kubernetes上下文中需要依赖当前的命名空间 (如 `kubectl config view --minify` 命令所述)，
+* 使用 `--namespace`/`-n` 参数指定正确命名空间，或者
+* 对于 `helm list` 命令，指定 `--all-namespaces`/`-A` 参数
 
-This applies to `helm ls`, `helm uninstall`, and all other `helm` commands
-referencing a release.
+这适用于 `helm ls`、 `helm uninstall` 以及其他所有涉及版本的 `helm` 命令。
 
 
-### On macOS, the file `/etc/.mdns_debug` is accessed. Why?
+### 为什么在macOS上`/etc/.mdns_debug`文件可以访问？
 
-We are aware of a case on macOS where Helm will try to access a file named
-`/etc/.mdns_debug`. If the file exists, Helm holds the file handle open while it
-executes.
+我们了解到macOS上的一个案例是Helm会试图访问`/etc/.mdns_debug`文件。
+如果文件存在，Helm会在文件句柄执行的时候保持打开状态。
 
-This is caused by macOS's MDNS library. It attempts to load that file to read
-debugging settings (if enabled). The file handle probably should not be held open, and
-this issue has been reported to Apple. However, it is macOS, not Helm, that causes this
-behavior.
+这是因为macOS的 MDNS 库。它尝试去加载这个文件读取debug设置（如果已经启用）。
+这个文件句柄可能不会保持打开，且这个问题已经报告给了苹果。 然而这种行为是macOS导致的，并不是Helm。
 
-If you do not want Helm to load this file, you may be able to compile Helm to as
-a static library that does not use the host network stack. Doing so will inflate the
-binary size of Helm, but will prevent the file from being open.
+如果你不想让Helm加载这个文件，你可以将Helm编译成一个静态库而不使用主机网络堆栈。
+这样做会导致Helm的二进制文件大小膨胀，但是会阻止这个文件打开。
 
-This issue was originally flagged as a potential security problem. But it has since
-been determined that there is no flaw or vulnerability caused by this behavior.
+这个问题最初被标记为潜在的安全问题。但后来已经确定，这种行为不存在任何缺陷或漏洞。
 
-### helm repo add fails when it used to work
+### helm 仓库使用时添加仓库失败
 
-In helm 3.3.1 and before, the command `helm repo add <reponame> <url>` will give
-no output if you attempt to add a repo which already exists. The flag
-`--no-update` would raise an error if the repo was already registered.
+在Helm 3.3.1及之前版本，`helm repo add <reponame> <url>`在你添加已经存在的仓库时不会输入内容。
+如果仓库已经存在，`--no-update` 参数会报错。
 
-In helm 3.3.2 and beyond, an attempt to add an existing repo will error:
+在Helm3.3.2及之后版本，试图添加一个已存在的仓库时会报以下错误：
 
 `Error: repository name (reponame) already exists, please specify a different name`
 
-The default behavior is now reversed. `--no-update` is now ignored, while if you
-want to replace (overwrite) an existing repo, you can use `--force-update`.
+现在这个默认行为是相反的。`--no-update` 现在被忽略。当您想替换（覆盖）已有仓库时，您可以使用 `--force-update`。
 
-This is due to a breaking change for a security fix as explained in the [Helm
-3.3.2 release notes](https://github.com/helm/helm/releases/tag/v3.3.2).
+这是由于一个安全修复做出的重大更改，详情见[Helm 3.3.2 release notes](https://github.com/helm/helm/releases/tag/v3.3.2)。
 
-### Enabling Kubernetes client logging
+### 开启 Kubernetes 客户端日志
 
-Printing log messages for debugging the Kubernetes client can be enabled using
-the [klog](https://pkg.go.dev/k8s.io/klog) flags. Using the `-v` flag to set
-verbosity level will be enough for most cases.
+调试Kubernetes客户端打印日志时，可以使用[klog](https://pkg.go.dev/k8s.io/klog) 参数。使用`-v`可以设置日志级别应用于大多数场景。
 
-For example:
+例如：
 
 ```
 helm list -v 6
 ```
 
-### Tiller installations stopped working and access is denied
+### Tiller停止安装且无法访问
 
-Helm releases used to be available from <https://storage.googleapis.com/kubernetes-helm/>. As explained in ["Announcing get.helm.sh"](https://helm.sh/blog/get-helm-sh/), the official location changed in June 2019. [GitHub Container Registry](https://github.com/orgs/helm/packages/container/package/tiller) makes all the old Tiller images available.
+Helm 发布之前可以从 <https://storage.googleapis.com/kubernetes-helm/> 获取。如["Announcing
+get.helm.sh"](https://helm.sh/blog/get-helm-sh/)中所述，官方地址2019年6月已变更。
+[GitHub Container Registry](https://github.com/orgs/helm/packages/container/package/tiller)
+可以获取所有旧的Tiller镜像。
 
-
-If you are trying to download older versions of Helm from the storage bucket you used in the past, you may find that they are missing:
+如果你想从原来的存储位置下载Helm旧版本，你会发现找不到了：
 
 ```
 <Error>
@@ -143,20 +127,24 @@ If you are trying to download older versions of Helm from the storage bucket you
 </Error>
 ```
 
-The [legacy Tiller image location](https://gcr.io/kubernetes-helm/tiller) began the removal of images in August 2021. We have made these images available at the [GitHub Container Registry](https://github.com/orgs/helm/packages/container/package/tiller) location. For example, to download version v2.17.0, replace:
+[原有Tiller镜像地址](https://gcr.io/kubernetes-helm/tiller) 会在2021年8月开始删除镜像。我们已经增加了可用地址在
+[GitHub Container Registry](https://github.com/orgs/helm/packages/container/package/tiller)。
+比如下载v2.17.0，用
+
+`https://get.helm.sh/helm-v2.17.0-linux-amd64.tar.gz` 替换
 
 `https://storage.googleapis.com/kubernetes-helm/helm-v2.17.0-linux-amd64.tar.gz`
 
-with:
-
-`https://get.helm.sh/helm-v2.17.0-linux-amd64.tar.gz`
-
-To initialize with Helm v2.17.0:
+使用Helm v2.17.0初始化：
 
 `helm init —upgrade`
 
-Or if a different version is needed, use the --tiller-image flag to override the default location and install a specific Helm v2 version:
+或者如果需要另一个版本，使用 --tiller-image 替换默认位置安装特定的Helm v2 版本：
 
 `helm init --tiller-image ghcr.io/helm/tiller:v2.16.9`
 
-**Note:** The Helm maintainers recommend migration to a currently-supported version of Helm. Helm v2.17.0 was the final release of Helm v2; Helm v2 is unsupported since November 2020, as detailed in [Helm 2 and the Charts Project Are Now Unsupported](https://helm.sh/blog/helm-2-becomes-unsupported/). Many CVEs have been flagged against Helm since then, and those exploits are patched in Helm v3 but will never be patched in Helm v2. See the [current list of published Helm advisories](https://github.com/helm/helm/security/advisories?state=published) and make a plan to [migrate to Helm v3](https://helm.sh/docs/topics/v2_v3_migration/#helm) today.
+**注意** Helm维护人员建议迁移到当前支持的Helm版本。Helm v2.17.0 是Helm 2的最终版本；Helm
+v2自2020年11月起便不再支持，具体细节请查看[Helm 2 和 Charts Project 已不再支持](https://helm.sh/blog/helm-2-becomes-unsupported/)。
+自那以后，Helm已经被发现很多的CVE，这些漏洞已经在Helm v3修复，但不会再给Helm v2打补丁。现在查看
+[Helm当前已发布的建议列表](https://github.com/helm/helm/security/advisories?state=published)并计划
+[迁移到 Helm v3](https://helm.sh/docs/topics/v2_v3_migration/#helm)吧。

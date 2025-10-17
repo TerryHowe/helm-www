@@ -1,109 +1,80 @@
 ---
-title: "Changes Since Helm 2"
+title: "从Helm 2发生的变化"
 weight: 1
 ---
 
-## Changes since Helm 2
+## 从Helm 2发生的变化
 
-Here's an exhaustive list of all the major changes introduced in Helm 3.
+这里会展示一个对Helm3主要引入的变化的详尽列表。
 
-### Removal of Tiller
+### 移除了Tiller
 
-During the Helm 2 development cycle, we introduced Tiller. Tiller played an
-important role for teams working on a shared cluster - it made it possible for
-multiple different operators to interact with the same set of releases.
+在Helm 2的开发周期中，我们引入了Tiller。Tiller在团队协作中共享集群时扮演了重要角色。
+它使得不同的操作员与相同的版本进行交互称为了可能。
 
-With role-based access controls (RBAC) enabled by default in Kubernetes 1.6,
-locking down Tiller for use in a production scenario became more difficult to
-manage. Due to the vast number of possible security policies, our stance was to
-provide a permissive default configuration. This allowed first-time users to
-start experimenting with Helm and Kubernetes without having to dive headfirst
-into the security controls. Unfortunately, this permissive configuration could
-grant a user a broad range of permissions they weren’t intended to have. DevOps
-and SREs had to learn additional operational steps when installing Tiller into a
-multi-tenant cluster.
+Kubernetes 1.6默认使用了基于角色的访问控制（RBAC），在生产环境对Tiller的锁定使用变得难于管理。
+由于大量可能的安全策略，我们的立场是提供一个自由的默认配置。这样可以允许新手用户可以乐于尝试Helm
+和Kubernetes而不需要深挖安全控制。 不幸的是这种自由的配置会授予用户他们不该有的权限。DevOps和SRE
+在安装多用户集群时不得不去学习额外的操作步骤。
 
-After hearing how community members were using Helm in certain scenarios, we
-found that Tiller’s release management system did not need to rely upon an
-in-cluster operator to maintain state or act as a central hub for Helm release
-information. Instead, we could simply fetch information from the Kubernetes API
-server, render the Charts client-side, and store a record of the installation in
-Kubernetes.
+在听取了社区成员在特定场景使用Helm之后，我们发现Tiller的版本管理系统不需要依赖于集群内部用户去维护
+状态或者作为一个Helm版本信息的中心hub。取而代之的是，我们可以简单地从Kubernetes API server获取信息，
+在Chart客户端处理并在Kubernetes中存储安装记录。
 
-Tiller’s primary goal could be accomplished without Tiller, so one of the first
-decisions we made regarding Helm 3 was to completely remove Tiller.
+Tiller的首要目标可以在没有Tiller的情况下实现，因此针对于 Helm 3 我们做的首要决定之一就是完全移除Tiller。
 
-With Tiller gone, the security model for Helm is radically simplified. Helm 3
-now supports all the modern security, identity, and authorization features of
-modern Kubernetes. Helm’s permissions are evaluated using your [kubeconfig
-file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/).
-Cluster administrators can restrict user permissions at whatever granularity
-they see fit. Releases are still recorded in-cluster, and the rest of Helm’s
-functionality remains.
+随着Tiller的消失，Helm的安全模块从根本上被简化。Helm 3 现在支持所有Kubernetes流行的安全、
+身份和授权特性。Helm的权限通过你的
+[kubeconfig文件](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)进行评估。
+集群管理员可以限制用户权限，只要他们觉得合适，
+无论什么粒度都可以做到。版本发布记录和Helm的剩余保留功能仍然会被记录在集群中。
 
-### Improved Upgrade Strategy: 3-way Strategic Merge Patches
+### 改进升级策略: 三路策略合并补丁
 
-Helm 2 used a two-way strategic merge patch. During an upgrade, it compared the
-most recent chart's manifest against the proposed chart's manifest (the one
-supplied during `helm upgrade`). It compared the differences between these two
-charts to determine what changes needed to be applied to the resources in
-Kubernetes. If changes were applied to the cluster out-of-band (such as during a
-`kubectl edit`), those changes were not considered. This resulted in resources
-being unable to roll back to its previous state: because Helm only considered
-the last applied chart's manifest as its current state, if there were no changes
-in the chart's state, the live state was left unchanged.
+Helm 2 使用了一种双路策略合并补丁。在升级过程中，会对比最近一次的chart manifest和提出的
+chart manifest(通过`helm upgrade`提供)。升级会对比两个chart的不同来决定哪些更改会应用到Kubernetes资源中。
+如果更改是集群外带的（比如通过`kubectl edit`），则不会被考虑。结果就是资源不会回滚到之前的状态：
+因为Helm只考虑最后一次应用的chart manifest作为它的当前状态，如果chart状态没有更改，则资源的活动状态不会更改。
 
-In Helm 3, we now use a three-way strategic merge patch. Helm considers the old
-manifest, its live state, and the new manifest when generating a patch.
+现在Helm 3中，我们使用一种三路策略来合并补丁。Helm在生成一个补丁时会考虑之前老的manifest的活动状态。
 
-#### Examples
+#### 示例
 
-Let's go through a few common examples what this change impacts.
+让我们通过一些常见的例子来看看变化带来的影响。
 
-##### Rolling back where live state has changed
+##### 回滚已经改变的活动状态
 
-Your team just deployed their application to production on Kubernetes using
-Helm. The chart contains a Deployment object where the number of replicas is set
-to three:
+你的团队正好在Kubernetes上使用Helm部署了生产环境应用。chart包含了一个部署对象使用了三套副本：
 
 ```console
 $ helm install myapp ./myapp
 ```
 
-A new developer joins the team. On their first day while observing the
-production cluster, a horrible coffee-spilling-on-the-keyboard accident happens
-and they `kubectl scale` the production deployment from three replicas down to
-zero.
+一个开发新人加入了团队。当他们第一点观察生产环境集群时，发生了一个像是咖啡洒在了键盘上一样的严重事故，
+他们使用 `kubectl scale` 对生产环境部署进行缩容，将副本数从3降到了0 。
 
 ```console
 $ kubectl scale --replicas=0 deployment/myapp
 ```
 
-Another developer on your team notices that the production site is down and
-decides to rollback the release to its previous state:
+团队里面的另一个人看到线上环境已经挂了就决定回滚这个版本到之前的状态：
 
 ```console
 $ helm rollback myapp
 ```
 
-What happens?
+发生了什么？
 
-In Helm 2, it would generate a patch, comparing the old manifest against the new
-manifest. Because this is a rollback, it's the same manifest. Helm would
-determine that there is nothing to change because there is no difference between
-the old manifest and the new manifest. The replica count continues to stay at
-zero. Panic ensues.
+在Helm 2中，会生成一个补丁并对比老的manifest和新的manifest。因为这是一个回滚，manifest是一样的。
+Helm会认为新老manifest没有区别，因此没有需要更改的内容。副本统计数量继续保持为0。恐慌就接踵而至。
 
-In Helm 3, the patch is generated using the old manifest, the live state, and
-the new manifest. Helm recognizes that the old state was at three, the live
-state is at zero and the new manifest wishes to change it back to three, so it
-generates a patch to change the state back to three.
+在Helm 3中，是用老的manifest生成新的补丁，活动状态和新的manifest。
+Helm 意识到老的状态是3，而现有活动状态是0，并且新的manifest希望改回3，因此会生成一个补丁将状态改回3。
 
-##### Upgrades where live state has changed
+##### 活动状态已更改的情况下升级
 
-Many service meshes and other controller-based applications inject data into
-Kubernetes objects. This can be something like a sidecar, labels, or other
-information. Previously if you had the given manifest rendered from a Chart:
+很多服务网格和其他基于controller的应用向Kubernetes对象中注入数据。比如sidecar、label和其他信息。
+之前如果你从Chart渲染给定的manifest如下:
 
 ```yaml
 containers:
@@ -111,7 +82,7 @@ containers:
   image: nginx:2.0.0
 ```
 
-And the live state was modified by another application to
+并且另一个应用修改活动状态如下：
 
 ```yaml
 containers:
@@ -121,8 +92,7 @@ containers:
   image: my-cool-mesh:1.0.0
 ```
 
-Now, you want to upgrade the `nginx` image tag to `2.1.0`. So, you upgrade to a
-chart with the given manifest:
+现在你想升级`nginx`镜像到`2.1.0`。因此用指定的manifest升级chart：
 
 ```yaml
 containers:
@@ -130,13 +100,12 @@ containers:
   image: nginx:2.1.0
 ```
 
-What happens?
+发生了什么？
 
-In Helm 2, Helm generates a patch of the `containers` object between the old
-manifest and the new manifest. The cluster's live state is not considered during
-the patch generation.
+在Helm 2中，Helm 在新老manifest之间生成了一个`containers`对象的补丁。
+生成补丁的过程中不考虑集群的活动状态。
 
-The cluster's live state is modified to look like the following:
+集群的活动状态被修改成了这样:
 
 ```yaml
 containers:
@@ -144,13 +113,12 @@ containers:
   image: nginx:2.1.0
 ```
 
-The sidecar pod is removed from live state. More panic ensues.
+sidecar pod从活动状态中移除了。更多的恐慌袭来。
 
-In Helm 3, Helm generates a patch of the `containers` object between the old
-manifest, the live state, and the new manifest. It notices that the new manifest
-changes the image tag to `2.1.0`, but live state contains a sidecar container.
+在Helm 3中，Helm 在新的manifest、活动状态和老manifest之间生成了一个`containers`对象的补丁。
+会注意到新的manifest将镜像tag更新为`2.1.0`, 但是活动状态中包含了一个sidecar容器。
 
-The cluster's live state is modified to look like the following:
+集群的活动状态被修改成了下面这样：
 
 ```yaml
 containers:
@@ -160,83 +128,66 @@ containers:
   image: my-cool-mesh:1.0.0
 ```
 
-### Release Names are now scoped to the Namespace
+### 发布名称现在限制在namespace范围内
 
-With the removal of Tiller, the information about each release had to go
-somewhere. In Helm 2, this was stored in the same namespace as Tiller. In
-practice, this meant that once a name was used by a release, no other release
-could use that same name, even if it was deployed in a different namespace.
+随着Tiller的移除， 每个版本的信息需要保存在某个地方。
+在Helm 2中，是存储在Tiller相同的命名空间中。
+实际上这意味着一个发布版本使用一个名称，其他发布不能使用相同的名称，
+即使在不同的命名空间中也不行。
 
-In Helm 3, information about a particular release is now stored in the same
-namespace as the release itself. This means that users can now `helm install
-wordpress stable/wordpress` in two separate namespaces, and each can be referred
-with `helm list` by changing the current namespace context (e.g. `helm list
---namespace foo`).
+在Helm 3中，特定的版本信息作为发布本身存储在相同的命名空间中。
+意味着用户现在可以在两个分开的命名空间中使用`helm install wordpress stable/wordpress`，
+并且每个都能使用 `helm list` 改变当前命名空间。 (例如 `helm list --namespace foo`)。
 
-With this greater alignment to native cluster namespaces, the `helm list`
-command no longer lists all releases by default. Instead, it will list only the
-releases in the namespace of your current kubernetes context (i.e. the namespace
-shown when you run `kubectl config view --minify`). It also means you must
-supply the `--all-namespaces` flag to `helm list` to get behaviour similar to
-Helm 2.
+与本地集群命名空间更好的一致性，使得 `helm list` 命令不再需要默认列出所有发布版本的列表。
+取而代之的是，仅仅会在命名空间中列出当前kubernetes上下文的版本。
+(也就是说运行`kubectl config view --minify`时会显示命名空间). 也就意味着您在执行`helm list`时必须提供
+ `--all-namespaces` 标识才能获得和Helm 2同样的结果。
 
-### Secrets as the default storage driver
+### 作为默认存储器的密钥
 
-In Helm 3, Secrets are now used as the [default storage
-driver](/docs/topics/advanced/#storage-backends). Helm 2 used ConfigMaps by
-default to store release information. In Helm 2.7.0, a new storage backend that
-uses Secrets for storing release information was implemented, and it is now the
-default starting in Helm 3.
+在 Helm 3中, 密钥被作为[默认存储驱动](https://helm.sh/zh/docs/topics/advanced#后端存储)使用。
+Helm 2默认使用ConfigMaps记录版本信息。在Helm 2.7.0中，新的存储后台使用密钥来存储版本信息，
+现在是Helm 3的默认设置。
 
-Changing to Secrets as the Helm 3 default allows for additional security in
-protecting charts in conjunction with the release of Secret encryption in
-Kubernetes.
+Helm 3默认允许更改密钥作为额外的安全措施在Kubernetes中和密钥加密一起保护chart。
 
-[Encrypting secrets at
-rest](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/) became
-available as an alpha feature in Kubernetes 1.7 and became stable as of
-Kubernetes 1.13. This allows users to encrypt Helm release metadata at rest, and
-so it is a good starting point that can be expanded later into using something
-like Vault.
+[静态加密密钥](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
+在Kubernetes 1.7中作为alpha特性可以使用了，在Kubernetes 1.13中变成了稳定特性。
+这允许用户静态加密Helm的发布元数据，同时也是一个类似Vault的以后可扩展的良好起点。
 
-### Go import path changes
+### 更改了Go的path导入
 
-In Helm 3, Helm switched the Go import path over from `k8s.io/helm` to
-`helm.sh/helm/v3`. If you intend to upgrade to the Helm 3 Go client libraries,
-make sure to change your import paths.
+在Helm 3中，Helm将Go的import路径从`k8s.io/helm`切换到了`helm.sh/helm/v3`。如果你打算
+升级到Helm 3的Go客户端库，确保你已经更改了import路径。
 
 ### Capabilities
 
-The `.Capabilities` built-in object available during the rendering stage has
-been simplified.
+`.Capabilities`内置对象会在已经简化的渲染阶段生效。
 
-[Built-in Objects](/docs/chart_template_guide/builtin_objects/)
+[内置对象](https://helm.sh/zh/docs/chart_template_guide/builtin_objects/)
 
-### Validating Chart Values with JSONSchema
+### 使用Json格式验证Chart Values
 
-A JSON Schema can now be imposed upon chart values. This ensures that values
-provided by the user follow the schema laid out by the chart maintainer,
-providing better error reporting when the user provides an incorrect set of
-values for a chart.
+chart values现在可以使用JSON结构了。这保证用户提供value可以按照chart维护人员设置的结构排列，
+并且当用户提供了错误的chart value时会有更好错误提示。
 
-Validation occurs when any of the following commands are invoked:
+当调用以下命令时会进行JSON格式验证：
 
 * `helm install`
 * `helm upgrade`
 * `helm template`
 * `helm lint`
 
-See the documentation on [Schema files](/docs/topics/charts#schema-files) for
-more information.
+查看 [格式文档](https://docs.helm.sh/zh/docs/topics/charts#架构文件) 了解更多信息。
 
-### Consolidation of `requirements.yaml` into `Chart.yaml`
+### 将 `requirements.yaml` 合并到了 `Chart.yaml`
 
-The Chart dependency management system moved from requirements.yaml and
-requirements.lock to Chart.yaml and Chart.lock. We recommend that new charts
-meant for Helm 3 use the new format. However, Helm 3 still understands Chart API
-version 1 (`v1`) and will load existing `requirements.yaml` files
+Chart依赖体系从 requirements.yaml 和 requirements.lock 移动到 Chart.yaml
+和 Chart.lock。我们推荐在Helm 3的新chart中使用新格式。不过Helm 3 依然可以识别
+Chart API 版本1 (`v1`) 并且会加载已有的 `requirements.yaml` 文件。
 
-In Helm 2, this is how a `requirements.yaml` looked:
+Helm 2中，`requirements.yaml` 看起来是这样的:
 
 ```yaml
 dependencies:
@@ -248,8 +199,7 @@ dependencies:
     - database
 ```
 
-In Helm 3, the dependency is expressed the same way, but now from your
-`Chart.yaml`:
+Helm 3中， 依赖使用了同样的表达方式，现在`Chart.yaml`是这样的：
 
 ```yaml
 dependencies:
@@ -261,81 +211,55 @@ dependencies:
     - database
 ```
 
-Charts are still downloaded and placed in the `charts/` directory, so subcharts
-vendored into the `charts/` directory will continue to work without
-modification.
+Chart会依然下载和放置在 `charts/` 目录， 因此 `charts/` 目录中的子chart不作修改即可继续工作。
 
-### Name (or --generate-name) is now required on install
+### Name (或者 --generate-name) 安装时是必需的
 
-In Helm 2, if no name was provided, an auto-generated name would be given. In
-production, this proved to be more of a nuisance than a helpful feature. In Helm
-3, Helm will throw an error if no name is provided with `helm install`.
+Helm 2中，如果没有提供名称， 会自动生成一个名称。在生产环境，这被证明是一个麻烦事而不是一个有用的特性。
+而在Helm 3中，如果 `helm install` 没有提供name，会抛异常。
 
-For those who still wish to have a name auto-generated for you, you can use the
-`--generate-name` flag to create one for you.
+如果仍然需要一个自动生成的名称，您可以使用 `--generate-name` 创建。
 
-### Pushing Charts to OCI Registries
+### 推送Chart到OCI注册中心
 
-This is an experimental feature introduced in Helm 3. To use, set the
-environment variable `HELM_EXPERIMENTAL_OCI=1`.
+这是一个Helm 3 中的实验性特性。使用时需要设置环境变量 `HELM_EXPERIMENTAL_OCI=1`。
 
-At a high level, a Chart Repository is a location where Charts can be stored and
-shared. The Helm client packs and ships Helm Charts to a Chart Repository.
-Simply put, a Chart Repository is a basic HTTP server that houses an index.yaml
-file and some packaged charts.
+Chart仓库在较高层次上是一个存储和分发Chart的地址。Helm客户端打包并将Chart推送到Chart仓库中。
+简单来说，Chart仓库就是一个基本的HTTP服务器用来存放index.yaml文件和打包的chart。
 
-While there are several benefits to the Chart Repository API meeting the most
-basic storage requirements, a few drawbacks have started to show:
+Chart 仓库API满足最基本的需求有一些好处，但是有些缺点开始显现出来：
 
-- Chart Repositories have a very hard time abstracting most of the security
-  implementations required in a production environment. Having a standard API
-  for authentication and authorization is very important in production
-  scenarios.
-- Helm’s Chart provenance tools used for signing and verifying the integrity and
-  origin of a chart are an optional piece of the Chart publishing process.
-- In multi-tenant scenarios, the same Chart can be uploaded by another tenant,
-  costing twice the storage cost to store the same content. Smarter chart
-  repositories have been designed to handle this, but it’s not a part of the
-  formal specification.
-- Using a single index file for search, metadata information, and fetching
-  Charts has made it difficult or clunky to design around in secure multi-tenant
-  implementations.
+* Chart 仓库很难在生产环境抽象出大部分的安全性实现。在生产环境有一个认证和授权的标准API就显得格外重要。
+* Helm Chart的初始化工具用来签名和验证chart的完整性和来源，在chart的发布过程中是可选的。
+* 在多客户场景中，同一个chart可以被其他客户上传，同样的内容会被存储两次。chart仓库可以更加智能地处理
+这个问题，但并不是正式规范的一部分。
+* 在安全的多客户实现中使用单一的索引文件进行搜索、元数据信息存放和获取chart会变得困难和笨拙。
 
-Docker’s Distribution project (also known as Docker Registry v2) is the
-successor to the Docker Registry project. Many major cloud vendors have a
-product offering of the Distribution project, and with so many vendors offering
-the same product, the Distribution project has benefited from many years of
-hardening, security best practices, and battle-testing.
+Docker的分发项目（也称作Docker注册中心 v2）是Docker 注册项目的继承者。 很多主要的云供应商都提供项目
+分发，很多供应商都提供相同的产品， 这个分发项目得益于多年的强化、安全性实践和对抗测试。
 
-Please have a look at `helm help chart` and `helm help registry` for more
-information on how to package a chart and push it to a Docker registry.
+请查看 `helm help chart` 和 `helm help registry` 了解如何打包chart并推送到Docker注册中心的更多信息。
 
-For more info, please see [this page](/docs/topics/registries/).
+更多信息请查看 [注册中心](https://docs.helm.sh/zh/docs/topics/registries/)页面。
 
-### Removal of `helm serve`
+### 移除了`helm serve`
 
-`helm serve` ran a local Chart Repository on your machine for development
-purposes. However, it didn't receive much uptake as a development tool and had
-numerous issues with its design. In the end, we decided to remove it and split
-it out as a plugin.
+`helm serve` 命令可以在你本地机器运行一个Chart仓库用于开发目的。
+然而作为一个开发工具并没有受到太多利用，并且设计上有很多问题。最终我们决定移除它，
+拆分成了一个插件。
 
-For a similar experience to `helm serve`, have a look at the local filesystem
-storage option in
+对于 `helm serve` 的类似经历，可以查看本地文件系统存储选项在
 [ChartMuseum](https://chartmuseum.com/docs/#using-with-local-filesystem-storage)
-and the [servecm plugin](https://github.com/jdolitsky/helm-servecm).
+和 [servecm plugin](https://github.com/jdolitsky/helm-servecm).
 
+### Library chart支持
 
-### Library chart support
+Helm 3 支持的一类chart称为 “library chart”。 这是一个被其他chart共享的chart，
+但是它自己不能创建发布组件。library chart的模板只能声明 `define` 元素。 全局范围
+内的非`define`内容会被简单忽略。这允许用户复用和共享可在多个chart中重复使用的代码片段。
+避免冗余和保留chart [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself)。
 
-Helm 3 supports a class of chart called a “library chart”. This is a chart that
-is shared by other charts, but does not create any release artifacts of its own.
-A library chart’s templates can only declare `define` elements. Globally scoped
-non-`define` content is simply ignored. This allows users to re-use and share
-snippets of code that can be re-used across many charts, avoiding redundancy and
-keeping charts [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself).
-
-Library charts are declared in the dependencies directive in Chart.yaml, and are
-installed and managed like any other chart.
+Library chart在 Chart.yaml的依赖指令中声明，安装和管理与其他chart一致。
 
 ```yaml
 dependencies:
@@ -344,85 +268,65 @@ dependencies:
     repository: quay.io
 ```
 
-We’re very excited to see the use cases this feature opens up for chart
-developers, as well as any best practices that arise from consuming library
-charts.
+我们很高兴对开发者开放了这个特性的使用案例，以及library charts使用的最佳实践。
 
-### Chart.yaml apiVersion bump
+### Chart.yaml api版本切换
 
-With the introduction of library chart support and the consolidation of
-requirements.yaml into Chart.yaml, clients that understood Helm 2's package
-format won't understand these new features. So, we bumped the apiVersion in
-Chart.yaml from `v1` to `v2`.
+随着对library chart的支持以及requirements.yaml合并到Chart.yaml，客户端可以识别Helm 2的包格式而不理解
+这些新特性。因此我们将Chart.yaml的apiVersion从 `v1` 切换到了 `v2`。
 
-`helm create` now creates charts using this new format, so the default
-apiVersion was bumped there as well.
+`helm create` 现在使用使用新格式创建chart，默认的apiVersion也切换到了这里。
 
-Clients wishing to support both versions of Helm charts should inspect the
-`apiVersion` field in Chart.yaml to understand how to parse the package format.
+客户端希望同时支持两个版本，进而能够检查Chart.yaml的`apiVersion`字段去理解如何解析包格式。
 
-### XDG Base Directory Support
+### XDG 基本目录支持
 
-[The XDG Base Directory
-Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)
-is a portable standard defining where configuration, data, and cached files
-should be stored on the filesystem.
+[XDG 基本目录规范](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)
+是一个定义了配置、数据和缓存文件应该存储在文件系统什么位置的可移植标准。
 
-In Helm 2, Helm stored all this information in `~/.helm` (affectionately known
-as `helm home`), which could be changed by setting the `$HELM_HOME` environment
-variable, or by using the global flag `--home`.
+Helm 2中，Helm 将所有的信息存储在 `~/.helm` (被亲切地称为`helm home`)，可以通过设置 `$HELM_HOME`
+环境变量修改，或者使用全局参数 `--home`。
 
-In Helm 3, Helm now respects the following environment variables as per the XDG
-Base Directory Specification:
+Helm 3中，Helm现在遵守XDG 基本目录规范使用以下环境变量：
 
-- `$XDG_CACHE_HOME`
-- `$XDG_CONFIG_HOME`
-- `$XDG_DATA_HOME`
+* `$XDG_CACHE_HOME`
+* `$XDG_CONFIG_HOME`
+* `$XDG_DATA_HOME`
 
-Helm plugins are still passed `$HELM_HOME` as an alias to `$XDG_DATA_HOME` for
-backwards compatibility with plugins looking to use `$HELM_HOME` as a scratchpad
-environment.
+Helm 插件仍然使用 `$HELM_HOME` 作为 `$XDG_DATA_HOME` 的别名，以便希望将`$HELM_HOME`作为过渡环境的变量来保证向后兼容性。
 
-Several new environment variables are also passed in to the plugin's environment
-to accommodate this change:
+一些新的环境变量也通过插件环境变量来兼容以下更改：
 
-- `$HELM_PATH_CACHE` for the cache path
-- `$HELM_PATH_CONFIG` for the config path
-- `$HELM_PATH_DATA` for the data path
+* `$HELM_PATH_CACHE` 针对缓存路径
+* `$HELM_PATH_CONFIG` 针对配置路径
+* `$HELM_PATH_DATA` 针对data路径
 
-Helm plugins looking to support Helm 3 should consider using these new
-environment variables instead.
+如果Helm插件期望支持Helm 3，建议使用新的环境变量。
 
-### CLI Command Renames
+### CLI 命令重新命名
 
-In order to better align the verbiage from other package managers, `helm delete`
-was re-named to `helm uninstall`. `helm delete` is still retained as an alias to
-`helm uninstall`, so either form can be used.
+为了更好地从包管理器中调整不当措辞，`helm delete`被重命名为`helm uninstall`。
+ `helm delete` 依然作为 `helm uninstall` 的别名保留， 因此其他格式也能使用。
 
-In Helm 2, in order to purge the release ledger, the `--purge` flag had to be
-provided. This functionality is now enabled by default. To retain the previous
-behavior, use `helm uninstall --keep-history`.
+Helm 2 中为了清除版本清单，必须提供`--purge`参数。这个功能现在是默认使用的。
+为保留之前的操作行为，要使用 `helm uninstall --keep-history`。
 
-Additionally, several other commands were re-named to accommodate the same
-conventions:
+另外，其他一些重命名的命令提供了以下约定：
 
-- `helm inspect` -> `helm show`
-- `helm fetch` -> `helm pull`
+* `helm inspect` -> `helm show`
+* `helm fetch` -> `helm pull`
 
-These commands have also retained their older verbs as aliases, so you can
-continue to use them in either form.
+这些命令都保留了老的动词作为别名，因此您能够使用任意一种格式。
 
-### Automatically creating namespaces
+### 自动创建namespace
 
-When creating a release in a namespace that does not exist, Helm 2 created the
-namespace.  Helm 3 follows the behavior of other Kubernetes tooling and returns
-an error if the namespace does not exist.  Helm 3 will create the namespace if
-you explicitly specify `--create-namespace` flag.
+当用命名空间创建版本时，命名空间不存在，Helm 2会创建一个命名空间。
+Helm 3中沿用了其他Kubernetes 工具的形式，如果命名空间不存在，就返回错误。
+如果您明确指定 `--create-namespace` 参数，Helm 3 会创建一个命名空间。
 
-### What happened to .Chart.ApiVersion?
+### .Chart.ApiVersion是怎么回事?
 
-Helm follows the typical convention for CamelCasing which is to capitalize an
-acronym. We have done this elsewhere in the code, such as with
-`.Capabilities.APIVersions.Has`. In Helm v3, we corrected `.Chart.ApiVersion`
-to follow this pattern, renaming it to `.Chart.APIVersion`.
+Helm针对缩略语遵循驼峰命名的典型惯例。我们已经在代码的其他位置做了处理，比如
+`.Capabilities.APIVersions.Has`。Helm v3中，我们将 `.Chart.ApiVersion`
+更正成了`.Chart.APIVersion`。
 
